@@ -1828,14 +1828,11 @@ class PlayState extends MusicBeatState
 				}
 				
 				// Kill extremely late notes and cause misses
-				if (Conductor.songPosition > noteKillOffset + daNote.strumTime)
-				{
-					if (daNote.playField != null && daNote.playField.playerControls && !daNote.playField.autoPlayed && !daNote.ignoreNote
-						&& !daNote.canMiss && !endingSong && !daNote.wasGoodHit && field.playerControls && !field.autoPlayed) field.onNoteMiss.dispatch(daNote, field);
-						
-					daNote.kill();
-				}
+				if (daNote.isLate() && !daNote.tooLate && !daNote.ignoreNote && !daNote.wasGoodHit && !daNote.canMiss && !endingSong) field.onNoteMiss.dispatch(daNote, field);
 				
+				if ((daNote.tooLate && Conductor.songPosition >= noteKillOffset + daNote.strumTime + daNote.sustainLength)
+					|| (daNote.wasGoodHit && Conductor.songPosition >= daNote.strumTime + daNote.sustainLength)) field.disposeNote(daNote);
+					
 				if (!canUpdateModchart || !daNote.alive || !daNote.exists) continue; // ok modchart stuff
 				
 				final _skin = NoteUtil.getSkinFromID(daNote.player);
@@ -1998,16 +1995,25 @@ class PlayState extends MusicBeatState
 			
 			return null;
 		}
-		
-		expectedPlayfield.addNote(note);
-		notes.remove(note, true);
-		notes.insert(0, note);
-		note.spawned = true;
-		
-		var ret:Dynamic = callNoteTypeScript(note.noteType, 'postSpawnNote', [note]);
-		if (ret != ScriptConstants.STOP_FUNC) scripts.call('onSpawnNotePost', [note], false, [note.noteType]);
-		
-		return note;
+		else if (note.isLate() && !note.ignoreNote && !note.canMiss && !endingSong && !note.wasGoodHit) // dont Even bother
+		{
+			expectedPlayfield.onNoteMiss.dispatch(note, expectedPlayfield);
+			note.kill();
+			
+			return null;
+		}
+		else
+		{
+			expectedPlayfield.addNote(note);
+			notes.remove(note, true);
+			notes.insert(0, note);
+			note.spawned = true;
+			
+			var ret:Dynamic = callNoteTypeScript(note.noteType, 'postSpawnNote', [note]);
+			if (ret != ScriptConstants.STOP_FUNC) scripts.call('onSpawnNotePost', [note], false, [note.noteType]);
+			
+			return note;
+		}
 	}
 	
 	function openPauseMenu():Void
@@ -2869,36 +2875,28 @@ class PlayState extends MusicBeatState
 		{
 			// rewritten inputs???
 			
-			notes.forEachAlive(function(daNote:Note) {
-				// hold note functions
-				if (!daNote.playField.autoPlayed && daNote.playField.inControl && daNote.playField.playerControls)
-				{
-					if (daNote.isSustainNote
-						&& !daNote.blockHit
-						&& FlxG.keys.anyPressed(keysArray[daNote.noteData])
-						&& Conductor.songPosition >= daNote.strumTime
-						&& !daNote.tooLate
-						&& !daNote.wasGoodHit) daNote.playField.onNoteHit.dispatch(daNote, daNote.playField);
-				}
+			var i:Int = notes.length;
+			while (--i >= 0)
+			{
+				var daNote = notes.members[i];
 				
-				if (ClientPrefs.guitarHeroSustains)
+				if (!daNote.alive) continue;
+				
+				if (daNote.isSustainNote && !daNote.blockHit && !daNote.tooLate && !daNote.wasGoodHit && !daNote.playField.autoPlayed
+					&& daNote.playField.inControl && daNote.playField.playerControls)
 				{
-					// hold note drop
+					final holding:Bool = FlxG.keys.anyPressed(keysArray[daNote.noteData]);
 					
-					if (!daNote.playField.autoPlayed && daNote.playField.inControl && daNote.playField.playerControls)
+					if (holding && Conductor.songPosition >= daNote.strumTime)
 					{
-						if (daNote.isSustainNote
-							&& !daNote.blockHit
-							&& !daNote.ignoreNote
-							&& !FlxG.keys.anyPressed(keysArray[daNote.noteData])
-							&& !endingSong
-							&& (daNote.tooLate || !daNote.wasGoodHit))
-						{
-							daNote.playField.onNoteMiss.dispatch(daNote, daNote.playField);
-						}
+						daNote.playField.onNoteHit.dispatch(daNote, daNote.playField);
+					}
+					else if (ClientPrefs.guitarHeroSustains && !holding && daNote.parent?.wasGoodHit && !endingSong)
+					{
+						daNote.playField.onNoteMiss.dispatch(daNote, daNote.playField);
 					}
 				}
-			});
+			}
 			
 			if (boyfriend.holdTimer > Conductor.stepCrotchet * 0.0011 * boyfriend.singDuration
 				&& boyfriend.getAnimName().startsWith('sing')

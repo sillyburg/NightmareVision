@@ -259,7 +259,7 @@ class PlayField extends FlxTypedContainer<StrumNote>
 			if (note != null && note.exists && note.alive) func(note);
 	}
 	
-	inline function disposeNote(note:Note):Void
+	public inline function disposeNote(note:Note):Void
 	{
 		note.kill();
 		
@@ -408,6 +408,8 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	
 	function noteMiss(note:Note, field:PlayField):Void
 	{
+		note.tooLate = true;
+		
 		final susMult:Float = (note.isSustainNote ? 1 / PlayState.instance.holdSubdivisions : 1);
 		
 		PlayState.instance.health -= note.missHealth * PlayState.instance.healthLoss * susMult;
@@ -441,10 +443,10 @@ class PlayField extends FlxTypedContainer<StrumNote>
 			final tail = (note.isSustainNote ? note.parent.tail : note.tail);
 			for (sustain in tail)
 			{
-				note.blockHit = true;
-				note.ignoreNote = true;
-				note.alpha = 0.3;
-				note.copyAlpha = false;
+				sustain.blockHit = true;
+				sustain.ignoreNote = true;
+				sustain.alpha = 0.3;
+				sustain.copyAlpha = false;
 			}
 		}
 		

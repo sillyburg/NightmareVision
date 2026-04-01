@@ -527,12 +527,15 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		var absDiff = Math.abs(diff);
 		canBeHit = absDiff <= actualHitbox;
 		
-		if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit) tooLate = true;
-		
 		if (tooLate && !inEditor)
 		{
 			if (alpha > 0.3) alpha = 0.3;
 		}
+	}
+	
+	public inline function isLate():Bool
+	{
+		return (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit);
 	}
 	
 	override public function destroy()
