@@ -230,13 +230,8 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	public inline function removeNote(note:Note)
 	{
 		notes.remove(note);
-		note.scale.set(note.baseScaleX, note.baseScaleY);
-		note.defScale.copyFrom(note.scale);
-		note.updateHitbox();
 		
 		if (note.playField == this) note.playField = null;
-		
-		if (PlayState.instance != null) PlayState.instance.notes.remove(note, true);
 	}
 	
 	public inline function addNote(note:Note)
@@ -266,10 +261,9 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	
 	inline function disposeNote(note:Note):Void
 	{
-		removeNote(note);
-		
 		note.kill();
-		note.destroy();
+		
+		removeNote(note);
 	}
 	
 	public function noteHit(note:Note, field:PlayField):Void
@@ -392,10 +386,16 @@ class PlayField extends FlxTypedContainer<StrumNote>
 		
 		note.wasGoodHit = true;
 		
-		var ratingThing:funkin.game.Rating = funkin.game.Rating.judgeNote(note, Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.ratingOffset) / PlayState.instance?.playbackRate);
-		final splashCheck = (playerControls ? ratingThing.name == 'sick' || ratingThing.name == 'epic' : true);
-
-		if (field.noteSplashes && ) spawnSplash(note, splashCheck);
+		var shouldSplash:Bool = true;
+		if (playerControls)
+		{
+			var ratingThing:funkin.game.Rating = funkin.game.Rating.judgeNote(note, Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.ratingOffset) / PlayState.instance?.playbackRate);
+			
+			shouldSplash = (ratingThing.name == 'sick' || ratingThing.name == 'epic');
+		}
+		
+		if (field.noteSplashes && shouldSplash) spawnSplash(note);
+		
 		spawnSusSplash(note, field.playerControls);
 		
 		final globalScript = PlayState.instance.callNoteTypeScript(note.noteType, 'hit', scriptArgs);

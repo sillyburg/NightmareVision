@@ -27,16 +27,6 @@ class SortUtil
 	}
 	
 	/**
-		Sorts by Event notes time
-	**/
-	public static inline function sortByTime(a:funkin.objects.note.Note.EventNote, b:funkin.objects.note.Note.EventNote):Int
-	{
-		if (a == null || b == null) return 0;
-		
-		return FlxSort.byValues(FlxSort.ASCENDING, a.strumTime, b.strumTime);
-	}
-	
-	/**
 		Sorts by SpeedEvent's time
 	**/
 	public static inline function svSort(a:funkin.game.modchart.SpeedEvent, b:funkin.game.modchart.SpeedEvent):Int

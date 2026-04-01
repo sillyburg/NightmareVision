@@ -22,9 +22,66 @@ typedef EventNote =
 	value2:String
 }
 
+abstract QueueNote(Array<Dynamic>) to Array<Dynamic>
+{
+	public function new(strumTime:Float, sustainLength:Float, noteData:Int, noteType:Null<String>, isSustainNote:Bool = false, playField:Int = 0)
+	{
+		this = [strumTime, sustainLength, noteData, noteType, isSustainNote, false, playField, false, null];
+	}
+	
+	public var strumTime(get, set):Float;
+	public var sustainLength(get, set):Float;
+	public var noteData(get, set):Int;
+	public var noteType(get, set):Null<String>;
+	public var isSustainNote(get, set):Bool;
+	public var isSustainEnd(get, set):Bool;
+	public var playField(get, set):Int;
+	public var gfNote(get, set):Bool;
+	public var tail(get, set):Null<Array<QueueNote>>;
+	
+	function get_strumTime():Float return this[0];
+	
+	function get_sustainLength():Float return this[1];
+	
+	function get_noteData():Int return this[2];
+	
+	function get_noteType():Null<String> return this[3];
+	
+	function get_isSustainNote():Bool return this[4];
+	
+	function get_isSustainEnd():Bool return this[5];
+	
+	function get_playField():Int return this[6];
+	
+	function get_gfNote():Bool return this[7];
+	
+	function get_tail():Null<Array<QueueNote>> return this[8];
+	
+	function set_strumTime(v:Float):Float return this[0] = v;
+	
+	function set_sustainLength(v:Float):Float return this[1] = v;
+	
+	function set_noteData(v:Int):Int return this[2] = v;
+	
+	function set_noteType(v:Null<String>):Null<String> return this[3] = v;
+	
+	function set_isSustainNote(v:Bool):Bool return this[4] = v;
+	
+	function set_isSustainEnd(v:Bool):Bool return this[5] = v;
+	
+	function set_playField(v:Int):Int return this[6] = v;
+	
+	function set_gfNote(v:Bool):Bool return this[7] = v;
+	
+	function set_tail(v:Null<Array<QueueNote>>):Null<Array<QueueNote>> return this[8] = v;
+}
+
+@:allow(funkin.states.PlayState)
 class Note extends FlxSprite implements funkin.game.modchart.IModNote
 {
 	public static var defaultNotes = ['No Animation', 'GF Sing', ''];
+	
+	var queueNote:Null<QueueNote> = null;
 	
 	public var row:Int = 0;
 	public var lane:Int = 0;
@@ -102,7 +159,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	public var baseScaleX:Float = 1;
 	public var baseScaleY:Float = 1;
 	
-	private var earlyHitMult:Float = 0.5;
+	public var earlyHitMult:Float = 1;
 	
 	@:isVar
 	public var daWidth(get, never):Float;
@@ -208,9 +265,6 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 					color = 0xffa19f9f;
 				default:
 					if (!inEditor) noteScript = PlayState.instance.noteTypeScripts.getScript(value);
-					// else noteScript = ChartEditorState.instance.notetypeScripts.get(value);
-					
-					if (noteScript != null) noteScript.executeFunc("setupNote", [this], this);
 			}
 			noteType = value;
 		}
@@ -219,80 +273,84 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		return value;
 	}
 	
-	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?player:Int = 0)
+	public function new(strumTime:Float = 0, noteData:Int = 0, ?prevNote:Note, sustainNote:Bool = false, inEditor:Bool = false, player:Int = 0)
 	{
 		super();
 		
-		if (prevNote == null) prevNote = this;
-		
-		this.prevNote = prevNote;
 		this.player = player;
-		isSustainNote = sustainNote;
-		
-		if (ClientPrefs.quants && canQuant)
-		{
-			var beat = Conductor.getBeat(strumTime);
-			if (prevNote != null && isSustainNote) quant = prevNote.quant;
-			else quant = NoteUtil.getQuant(beat);
-		}
-		this.inEditor = inEditor;
-		
-		x += (ClientPrefs.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X) + 50;
-		// MAKE SURE ITS DEFINITELY OFF SCREEN?
-		y -= 2000;
+		this.prevNote = prevNote;
+		this.isSustainNote = sustainNote;
 		this.strumTime = strumTime;
-		if (!inEditor)
-		{
-			this.strumTime += ClientPrefs.noteOffset;
-			visualTime = PlayState.instance.getNoteInitialTime(this.strumTime);
-		}
-		
 		this.noteData = noteData;
-		
-		if (noteData > -1)
-		{
-			rgbShader = NoteUtil.initRGBShader(this, noteData, quant, player);
-			rgbEnabled = NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false;
-			
-			reColor = NoteUtil.getCurColors(noteData, quant, player);
-			
-			texture = '';
-			
-			if (!isSustainNote) playAnim(animation.exists('scroll') ? 'scroll' : 'scroll$noteData');
-		}
-		
-		if (prevNote != null) prevNote.nextNote = this;
-		
-		if (isSustainNote && prevNote != null)
-		{
-			hitsoundDisabled = true;
-			
-			copyAngle = false;
-			
-			playAnim(animation.exists('holdend') ? 'holdend' : 'holdend$noteData');
-			isSustainEnd = true;
-			updateHitbox();
-			
-			animSuffix = prevNote.animSuffix;
-			
-			if (prevNote.isSustainNote)
-			{
-				prevNote.playAnim(animation.exists('hold') ? 'hold' : 'hold$noteData');
-				prevNote.isSustainEnd = false;
-				
-				prevNote.updateHitbox();
-			}
-		}
-		else if (!isSustainNote) earlyHitMult = 1;
+		this.inEditor = inEditor;
 		
 		baseScaleX = scale.x;
 		baseScaleY = scale.y;
 	}
 	
-	var lastNoteOffsetXForPixelAutoAdjusting:Float = 0;
-	var lastNoteScaleToo:Float = 1;
+	public function preRecycle(?queueNote:QueueNote):Void
+	{
+		// MAYBE we need a macro to reset all of this :pray:
+		ignoreNote = canBeHit = tooLate = wasGoodHit = noteWasHit = hitByOpponent = false;
+		mustPress = (player == 0);
+		alpha = 1;
+		
+		tail.resize(0);
+		garbage = false;
+		parent = prevNote = nextNote = null;
+		sustainSplash = null;
+		noteSplash = null;
+		clipRect = null;
+		
+		if (queueNote != null)
+		{
+			this.queueNote = queueNote;
+			
+			noteData = queueNote.noteData;
+			noteType = queueNote.noteType;
+			isSustainEnd = queueNote.isSustainEnd;
+			isSustainNote = queueNote.isSustainNote;
+			player = lane = queueNote.playField;
+			
+			strumTime = queueNote.strumTime;
+			sustainLength = queueNote.sustainLength;
+			visualTime = PlayState.instance.getNoteInitialTime(strumTime);
+			visualLength = (PlayState.instance.getNoteInitialTime(strumTime + sustainLength) - visualTime);
+		}
+		
+		blockHit = (ClientPrefs.guitarHeroSustains && isSustainNote);
+		
+		if (ClientPrefs.quants && canQuant)
+		{
+			final beat:Float = Conductor.getBeat(strumTime);
+			quant = (prevNote != null && isSustainNote ? prevNote.quant : NoteUtil.getQuant(beat));
+		}
+		
+		rgbShader = NoteUtil.initRGBShader(this, noteData, quant, player);
+		rgbEnabled = (NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false);
+		reColor = NoteUtil.getCurColors(noteData, quant, player);
+		
+		texture = '';
+		
+		hitsoundDisabled = isSustainNote;
+		
+		playAnim(getDefaultAnim(), true);
+		updateHitbox();
+	}
 	
-	public var originalHeightForCalcs:Float = 6;
+	public function postRecycle():Void
+	{
+		if (!inEditor) this.strumTime += ClientPrefs.noteOffset;
+		
+		noteScript?.executeFunc('setupNote', [this], this);
+	}
+	
+	public inline function getDefaultAnim():String
+	{
+		var anim:String = (isSustainNote ? (isSustainEnd ? 'holdend' : 'hold') : 'scroll');
+		
+		return (animation.exists('$anim$noteData') ? '$anim$noteData' : anim);
+	}
 	
 	public function reloadNote(?_prefix:String = '', ?_texture:String = '', ?_suffix:String = '')
 	{
@@ -318,8 +376,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 			if (_skin == null || _skin.length < 1) _skin = 'NOTE_assets';
 		}
 		
-		var animName:String = null;
-		if (animation.curAnim != null) animName = animation.curAnim.name;
+		var animName:String = (animation.name ?? getDefaultAnim());
 		
 		var arraySkin:Array<String> = _skin.split('/');
 		var lastIndex:Int = arraySkin.length - 1;
@@ -430,9 +487,11 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		}
 	}
 	
+	var _cacheRect:Null<FlxRect> = null; // jsut for pooling
+	
 	inline function getRect()
 	{
-		final rect = (clipRect ?? new FlxRect());
+		final rect = (clipRect ?? _cacheRect ?? (_cacheRect = FlxRect.get()));
 		
 		rect.x = 0;
 		rect.y = 0;
@@ -478,9 +537,16 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	
 	override public function destroy()
 	{
-		if (playField != null) playField.removeNote(this);
+		playField?.removeNote(this);
+		
 		prevNote = null;
+		nextNote = null;
+		parent = null;
+		tail = null;
+		
+		_cacheRect?.put();
 		defScale.put();
+		
 		super.destroy();
 	}
 	
