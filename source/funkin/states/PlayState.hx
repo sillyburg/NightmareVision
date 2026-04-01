@@ -273,6 +273,7 @@ class PlayState extends MusicBeatState
 	public var spawnTime:Float = 3000;
 	
 	public var holdSubdivisions:Int = 1;
+	public var removeDuplicates:Bool = true;
 	
 	/**
 	 * Specialized container for song audio
@@ -1379,7 +1380,6 @@ class PlayState extends MusicBeatState
 		
 		var events = getEventsDirect();
 		
-		var lastPlayfieldNotes:Array<Array<Note>> = [for (i in 0...songData.lanes) [for (i in 0...songData.keys) null]];
 		noteRows = [for (i in 0...songData.lanes) []];
 		
 		#if debug
@@ -1476,7 +1476,36 @@ class PlayState extends MusicBeatState
 		trace('loading chart took: ' + (Sys.time() - cpuTime));
 		#end
 		
-		lastPlayfieldNotes = null;
+		if (removeDuplicates)
+		{
+			#if debug
+			cpuTime = Sys.time();
+			#end
+			
+			final killDifference:Float = 3;
+			
+			var i:Int = queueNotes.length, killed:Int = 0;
+			var lastNotes:Array<Array<QueueNote>> = [for (_ in 0...songData.lanes) [for (_ in 0...songData.keys) null]];
+			
+			while (--i > 0)
+			{
+				var note:QueueNote = queueNotes[i];
+				var lastNote:QueueNote = lastNotes[note.playField][note.noteData];
+				
+				if (lastNote != null && Math.abs(note.strumTime - lastNote.strumTime) < killDifference)
+				{
+					queueNotes.splice(i, 1);
+					killed++;
+					continue;
+				}
+				
+				lastNotes[note.playField][note.noteData] = note;
+			}
+			
+			#if debug
+			trace('removed $killed duplicates. took: ' + (Sys.time() - cpuTime));
+			#end
+		}
 		
 		checkEventNote();
 		generatedMusic = true;
@@ -1771,7 +1800,7 @@ class PlayState extends MusicBeatState
 			modManager.update(elapsed);
 		}
 		
-		final spawnOffset:Float = (spawnTime * playbackRate / songSpeed);
+		final spawnOffset:Float = (spawnTime * playbackRate / (songSpeed < 1 ? songSpeed : 1));
 		
 		while (queueNotes.length > 0 && (queueNotes[0].strumTime - Conductor.songPosition) < spawnOffset)
 			recycleNote(queueNotes.shift());
@@ -1840,7 +1869,7 @@ class PlayState extends MusicBeatState
 					
 				if (!canUpdateModchart || !daNote.alive || !daNote.exists) continue; // ok modchart stuff
 				
-				final _skin = NoteUtil.getSkinFromID(daNote.player);
+				final skin = daNote.skin;
 				
 				final visPos = ((daNote.visualTime - Conductor.visualPosition) * songSpeed);
 				final diff = (daNote.strumTime - Conductor.songPosition);
@@ -1869,12 +1898,12 @@ class PlayState extends MusicBeatState
 					
 					if (daNote.wasGoodHit && daNote.parent?.sustainSplash != null && field.trackSustainSplashes) daNote.parent.sustainSplash.angle = daNote.angle;
 					
-					daNote.x += (_skin.sustainOffsets[daNote.noteData].x * scaleXMult);
-					daNote.y += (_skin.sustainOffsets[daNote.noteData].y * scaleYMult);
+					daNote.x += (skin.sustainOffsets[daNote.noteData].x * scaleXMult);
+					daNote.y += (skin.sustainOffsets[daNote.noteData].y * scaleYMult);
 					if (daNote.isSustainEnd)
 					{
-						daNote.x += (_skin.susEndOffsets[daNote.noteData].x * scaleXMult);
-						daNote.y += (_skin.susEndOffsets[daNote.noteData].y * scaleYMult);
+						daNote.x += (skin.susEndOffsets[daNote.noteData].x * scaleXMult);
+						daNote.y += (skin.susEndOffsets[daNote.noteData].y * scaleYMult);
 					}
 					else
 					{
@@ -1888,8 +1917,8 @@ class PlayState extends MusicBeatState
 					nextPos.put();
 				}
 				
-				daNote.x += ((_skin.noteOffsets[daNote.noteData].x + daNote.offsetX) * scaleXMult);
-				daNote.y += ((_skin.noteOffsets[daNote.noteData].y + daNote.offsetY) * scaleYMult);
+				daNote.x += ((skin.noteOffsets[daNote.noteData].x + daNote.offsetX) * scaleXMult);
+				daNote.y += ((skin.noteOffsets[daNote.noteData].y + daNote.offsetY) * scaleYMult);
 			}
 		}
 		
@@ -1995,7 +2024,14 @@ class PlayState extends MusicBeatState
 			
 			return null;
 		}
-		else if (note.isLate() && !note.ignoreNote && !note.canMiss && !endingSong && !note.wasGoodHit) // dont Even bother
+		else if (expectedPlayfield.autoPlayed && note.strumTime <= Conductor.songPosition && !note.ignoreNote /* && !note.blockHit */)
+		{
+			expectedPlayfield.onNoteHit.dispatch(note, expectedPlayfield);
+			note.kill();
+			
+			return null;
+		}
+		else if (!expectedPlayfield.autoPlayed && note.isLate() && !note.ignoreNote && !note.canMiss && !endingSong) // dont Even bother
 		{
 			expectedPlayfield.onNoteMiss.dispatch(note, expectedPlayfield);
 			note.kill();
