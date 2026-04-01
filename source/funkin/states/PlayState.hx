@@ -1001,7 +1001,7 @@ class PlayState extends MusicBeatState
 				}
 			});
 			strums.onNoteMiss.add((note, field) -> {
-				if (note.canMiss || !field.playerControls) return;
+				if (!field.playerControls) return;
 				
 				combo = 0;
 				audio.miss();
@@ -1423,7 +1423,7 @@ class PlayState extends MusicBeatState
 				var susLength:Float = songNotes[2];
 				var swagNote = new QueueNote(daStrumTime, susLength, daNoteData, type, false, playfield);
 				
-				if (section.gfSection == (swagNote.playField == 0)) swagNote.gfNote = true;
+				if (section.gfSection && playfield == (section.mustHitSection ? 0 : 1)) swagNote.gfNote = true;
 				if ((section?.altAnim ?? false) && (type == '' || type == null)) swagNote.noteType = 'Alt Animation';
 				
 				queueNotes.push(swagNote);
@@ -1828,7 +1828,12 @@ class PlayState extends MusicBeatState
 				}
 				
 				// Kill extremely late notes and cause misses
-				if (daNote.isLate() && !daNote.tooLate && !daNote.ignoreNote && !daNote.wasGoodHit && !daNote.canMiss && !endingSong) field.onNoteMiss.dispatch(daNote, field);
+				if (!daNote.tooLate && daNote.isLate())
+				{
+					daNote.tooLate = true;
+					
+					if (!daNote.ignoreNote && !daNote.wasGoodHit && !daNote.canMiss && !endingSong) field.onNoteMiss.dispatch(daNote, field);
+				}
 				
 				if ((daNote.tooLate && Conductor.songPosition >= noteKillOffset + daNote.strumTime + daNote.sustainLength)
 					|| (daNote.wasGoodHit && Conductor.songPosition >= daNote.strumTime + daNote.sustainLength)) field.disposeNote(daNote);
@@ -1933,12 +1938,11 @@ class PlayState extends MusicBeatState
 		scripts.call('onUpdatePost', [elapsed]);
 	}
 	
-	public function recycleNote(queueNote:QueueNote, ?parent:Note):Note
+	public function recycleNote(queueNote:QueueNote, ?parent:Note, ?prevNote:Note):Note
 	{
 		var note:Note = notes.recycle(Note, () -> new Note());
 		
-		note.preRecycle(queueNote);
-		note.parent = parent;
+		note.preRecycle(queueNote, parent, prevNote);
 		
 		if (parent != null) return note;
 		
@@ -1952,11 +1956,7 @@ class PlayState extends MusicBeatState
 				
 				for (tail in queueNote.tail)
 				{
-					final tail:Note = recycleNote(tail, note);
-					
-					prevNote.nextNote = tail;
-					tail.prevNote = prevNote;
-					tail.parent = note;
+					final tail:Note = recycleNote(tail, note, prevNote);
 					
 					note.tail.push(tail);
 					
@@ -2891,7 +2891,7 @@ class PlayState extends MusicBeatState
 					{
 						daNote.playField.onNoteHit.dispatch(daNote, daNote.playField);
 					}
-					else if (ClientPrefs.guitarHeroSustains && !holding && daNote.parent?.wasGoodHit && !endingSong)
+					else if (!holding && ClientPrefs.guitarHeroSustains && !daNote.ignoreNote && !endingSong)
 					{
 						daNote.playField.onNoteMiss.dispatch(daNote, daNote.playField);
 					}

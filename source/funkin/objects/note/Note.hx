@@ -126,7 +126,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	public var spawned:Bool = false;
 	
 	public var tail:Array<Note> = []; // for sustains
-	public var parent:Note;
+	public var parent:Null<Note> = null;
 	
 	/**
 	 * if true, the note cannot be hit.
@@ -140,11 +140,6 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	public var noteType(default, set):String = null;
 	
 	public var alreadyShifted:Bool = false;
-	
-	public var eventName:String = '';
-	public var eventLength:Int = 0;
-	public var eventVal1:String = '';
-	public var eventVal2:String = '';
 	
 	public var rgbShader:RGBShaderReference;
 	public var rgbEnabled:Bool = true;
@@ -161,20 +156,13 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	
 	public var earlyHitMult:Float = 1;
 	
-	@:isVar
 	public var daWidth(get, never):Float;
 	
-	public function get_daWidth()
-	{
-		return playField == null ? Note.swagWidth : playField.swagWidth;
-	}
+	inline function get_daWidth():Float return (playField == null ? Note.swagWidth : playField.swagWidth);
 	
 	public static var swagWidth:Float = 160 * 0.7;
 	
 	public var noteSplashDisabled:Bool = false;
-	public var noteSplashHue:Float = 0;
-	public var noteSplashSat:Float = 0;
-	public var noteSplashBrt:Float = 0;
 	
 	public var offsetX:Float = 0;
 	public var offsetY:Float = 0;
@@ -190,7 +178,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	public var hitHealth:Float = 0.023;
 	public var missHealth:Float = 0.0475;
 	public var rating:String = 'unknown';
-	public var ratingMod:Float = 0; // 9 = unknown, 0.25 = shit, 0.5 = bad, 0.75 = good, 1 = sick
+	public var ratingMod:Float = 0; // 0 = unknown, 0.25 = shit, 0.5 = bad, 0.75 = good, 1 = sick
 	public var ratingDisabled:Bool = false;
 	
 	public var texture(default, set):String = null;
@@ -201,7 +189,6 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	public var noMissAnimation:Bool = false;
 	public var hitCausesMiss:Bool = false;
 	public var canMiss:Bool = false;
-	public var distance:Float = 2000; // plan on doing scroll directions soon -bb
 	
 	public var hitsoundDisabled:Bool = false;
 	
@@ -240,37 +227,38 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	{
 		noteScript = null;
 		
-		if (noteData > -1 && noteType != value)
+		switch (value)
 		{
-			switch (value)
-			{
-				case 'Alt Animation':
-					animSuffix = '-alt';
-				case 'Hurt Note':
-					hitPriority = 0;
-					ignoreNote = mustPress;
-					missHealth = isSustainNote ? 0.1 : 0.3;
-					hitCausesMiss = true;
-					rgbShader.r = 0xFF101010;
-					rgbShader.g = 0xFFFF0000;
-					rgbShader.b = 0xFF990022;
-					
-				case 'No Animation':
-					noAnimation = true;
-					noMissAnimation = true;
-				case 'GF Sing':
-					gfNote = true;
-				case 'Ghost Note':
-					alpha = 0.8;
-					color = 0xffa19f9f;
-				default:
-					if (!inEditor) noteScript = PlayState.instance.noteTypeScripts.getScript(value);
-			}
-			noteType = value;
+			case 'Alt Animation':
+				animSuffix = '-alt';
+				
+			case 'Hurt Note':
+				hitPriority = 0;
+				ignoreNote = mustPress;
+				missHealth = isSustainNote ? 0.1 : 0.3;
+				hitCausesMiss = true;
+				rgbShader.r = 0xFF101010;
+				rgbShader.g = 0xFFFF0000;
+				rgbShader.b = 0xFF990022;
+				
+			case 'No Animation':
+				noAnimation = true;
+				noMissAnimation = true;
+				
+			case 'GF Sing':
+				gfNote = true;
+				
+			case 'Ghost Note':
+				alpha = 0.8;
+				color = 0xffa19f9f;
+				
+			default:
+				if (!inEditor) noteScript = PlayState.instance.noteTypeScripts.getScript(value);
 		}
+		
 		if (hitCausesMiss) canMiss = true;
 		
-		return value;
+		return noteType = value;
 	}
 	
 	public function new(strumTime:Float = 0, noteData:Int = 0, ?prevNote:Note, sustainNote:Bool = false, inEditor:Bool = false, player:Int = 0)
@@ -284,58 +272,85 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		this.noteData = noteData;
 		this.inEditor = inEditor;
 		
+		_resetTexture();
+	}
+	
+	public inline function _reset():Void
+	{
+		// MAYBE we need a macro to reset all of this :pray:
+		garbage = spawned = false;
+		reAssignable = true;
+		
+		hitPriority = 1;
+		hitHealth = .023;
+		missHealth = .0475;
+		noAnimation = noMissAnimation = ratingDisabled = hitCausesMiss = false;
+		
+		ignoreNote = canBeHit = tooLate = wasGoodHit = noteWasHit = hitByOpponent = false;
+		
+		tail.resize(0);
+		sustainSplash = null;
+		noteSplash = null;
+		nextNote = null;
+		clipRect = null;
+		alpha = 1;
+	}
+	
+	inline function _resetTexture():Void
+	{
+		if (ClientPrefs.quants && canQuant) quant = (prevNote?.quant ?? NoteUtil.getQuant(Conductor.getBeat(strumTime)));
+		
+		rgbShader = NoteUtil.initRGBShader(this, noteData, quant, player);
+		rgbEnabled = (NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false);
+		reColor = NoteUtil.getCurColors(noteData, quant, player);
+		
+		prefix = suffix = animSuffix = texture = '';
+		
+		playAnim(getDefaultAnim(), true);
+		updateHitbox();
+		
 		baseScaleX = scale.x;
 		baseScaleY = scale.y;
 	}
 	
-	public function preRecycle(?queueNote:QueueNote):Void
+	public function preRecycle(?queueNote:QueueNote, ?parent:Note, ?prevNote:Note):Void
 	{
-		// MAYBE we need a macro to reset all of this :pray:
-		ignoreNote = canBeHit = tooLate = wasGoodHit = noteWasHit = hitByOpponent = false;
-		mustPress = (player == 0);
-		alpha = 1;
+		_reset();
 		
-		tail.resize(0);
-		garbage = false;
-		parent = prevNote = nextNote = null;
-		sustainSplash = null;
-		noteSplash = null;
-		clipRect = null;
+		this.parent = parent;
+		
+		if (prevNote != null)
+		{
+			this.prevNote = prevNote;
+			prevNote.nextNote = this;
+		}
 		
 		if (queueNote != null)
 		{
 			this.queueNote = queueNote;
 			
+			gfNote = queueNote.gfNote;
 			noteData = queueNote.noteData;
-			noteType = queueNote.noteType;
 			isSustainEnd = queueNote.isSustainEnd;
 			isSustainNote = queueNote.isSustainNote;
 			player = lane = queueNote.playField;
 			
 			strumTime = queueNote.strumTime;
 			sustainLength = queueNote.sustainLength;
-			visualTime = PlayState.instance.getNoteInitialTime(strumTime);
-			visualLength = (PlayState.instance.getNoteInitialTime(strumTime + sustainLength) - visualTime);
 		}
 		
+		mustPress = (player == 0);
 		blockHit = (ClientPrefs.guitarHeroSustains && isSustainNote);
 		
-		if (ClientPrefs.quants && canQuant)
-		{
-			final beat:Float = Conductor.getBeat(strumTime);
-			quant = (prevNote != null && isSustainNote ? prevNote.quant : NoteUtil.getQuant(beat));
-		}
-		
-		rgbShader = NoteUtil.initRGBShader(this, noteData, quant, player);
-		rgbEnabled = (NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false);
-		reColor = NoteUtil.getCurColors(noteData, quant, player);
-		
-		texture = '';
+		visualTime = PlayState.instance.getNoteInitialTime(strumTime);
+		visualLength = (PlayState.instance.getNoteInitialTime(strumTime + sustainLength) - visualTime);
 		
 		hitsoundDisabled = isSustainNote;
 		
-		playAnim(getDefaultAnim(), true);
-		updateHitbox();
+		_resetTexture();
+		
+		if (queueNote != null) noteType = queueNote.noteType;
+		trace(shader == rgbShader.shader);
 	}
 	
 	public function postRecycle():Void
@@ -542,9 +557,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	{
 		playField?.removeNote(this);
 		
-		prevNote = null;
-		nextNote = null;
-		parent = null;
+		prevNote = nextNote = parent = null;
 		tail = null;
 		
 		_cacheRect?.put();

@@ -408,8 +408,6 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	
 	function noteMiss(note:Note, field:PlayField):Void
 	{
-		note.tooLate = true;
-		
 		final susMult:Float = (note.isSustainNote ? 1 / PlayState.instance.holdSubdivisions : 1);
 		
 		PlayState.instance.health -= note.missHealth * PlayState.instance.healthLoss * susMult;
