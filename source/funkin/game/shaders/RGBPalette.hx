@@ -98,12 +98,19 @@ class RGBPalette
 		b = colors[2];
 	}
 	
-	public function new()
+	public function new(?colors:Array<FlxColor>)
 	{
-		r = 0xFFFF0000;
-		g = 0xFF00FF00;
-		b = 0xFF0000FF;
-		// setColors([0xFFFF0000, 0xFF00FF00, 0xFF0000FF]);
+		if (colors == null)
+		{
+			r = 0xFFFF0000;
+			g = 0xFF00FF00;
+			b = 0xFF0000FF;
+		}
+		else
+		{
+			setColors(colors);
+		}
+		
 		mult = 1.0;
 		flash = 0.0;
 		alphaMult = 1.0;
@@ -117,9 +124,9 @@ class RGBShaderReference
 	public var r(default, set):FlxColor;
 	public var g(default, set):FlxColor;
 	public var b(default, set):FlxColor;
-
+	
 	// only for reading
-	public var colorArray:Array<FlxColor> = [];
+	public var colorArray:Array<FlxColor> = [FlxColor.RED, FlxColor.LIME, FlxColor.BLUE];
 	
 	public var mult(default, set):Float;
 	public var alphaMult(default, set):Float;
@@ -141,6 +148,10 @@ class RGBShaderReference
 		_original = ref;
 		shader = ref.shader;
 		
+		colorArray[0] = parent.r;
+		colorArray[1] = parent.g;
+		colorArray[2] = parent.b;
+		
 		@:bypassAccessor
 		{
 			r = parent.r;
@@ -156,19 +167,19 @@ class RGBShaderReference
 	private function set_r(value:FlxColor)
 	{
 		if (allowNew && value != _original.r) cloneOriginal();
-		return (r = parent.r = value);
+		return (r = parent.r = colorArray[0] = value);
 	}
 	
 	private function set_g(value:FlxColor)
 	{
 		if (allowNew && value != _original.g) cloneOriginal();
-		return (g = parent.g = value);
+		return (g = parent.g = colorArray[1] = value);
 	}
 	
 	private function set_b(value:FlxColor)
 	{
 		if (allowNew && value != _original.b) cloneOriginal();
-		return (b = parent.b = value);
+		return (b = parent.b = colorArray[2] = value);
 	}
 	
 	private function set_mult(value:Float)
@@ -197,11 +208,9 @@ class RGBShaderReference
 	
 	public function setColors(colors:Array<FlxColor>)
 	{
-		r = colors[0];
-		g = colors[1];
-		b = colors[2];
-
-		colorArray = colors;
+		r = colorArray[0] = colors[0];
+		g = colorArray[1] = colors[1];
+		b = colorArray[2] = colors[2];
 	}
 	
 	public var allowNew = true;
@@ -213,20 +222,15 @@ class RGBShaderReference
 			allowNew = false;
 			if (_original != parent) return;
 			
-			parent = new RGBPalette();
-			parent.r = _original.r;
-			parent.g = _original.g;
-			parent.b = _original.b;
-
-			colorArray = [parent.r, parent.g, parent.b];
-			// parent.setColors([_original.r, _original.g, _original.b]);
+			parent = new RGBPalette(colorArray);
+			
 			parent.mult = _original.mult;
 			
 			parent.alphaMult = _original.alphaMult;
 			parent.flash = _original.flash;
 			parent.enabled = _original.enabled;
 			
-			_owner.shader = parent.shader;
+			shader = _owner.shader = parent.shader;
 		}
 	}
 }
@@ -266,8 +270,8 @@ class RGBPaletteShader extends FlxShader
 			}
 			return vec4(0.0, 0.0, 0.0, 0.0);
 		}
-            
-    ')
+			
+	')
 	@:glFragmentSource('
 		#pragma header
 

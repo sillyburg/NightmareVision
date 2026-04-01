@@ -20,8 +20,6 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	public var singers:Array<Null<Character>> = [];
 	public var quants(default, set):Bool = ClientPrefs.quants;
 	
-	public var hasChangedSkin:Bool = false;
-	
 	private function set_quants(value:Bool)
 	{
 		quants = value;
@@ -245,8 +243,6 @@ class PlayField extends FlxTypedContainer<StrumNote>
 		note.texture = _skin.noteTexture;
 		note.rgbEnabled = _skin.inEngineColoring;
 		note.rgbShader.enabled = note.rgbEnabled;
-		
-		if (hasChangedSkin) note.updateColors();
 		
 		note.defScale.copyFrom(note.scale);
 		note.updateHitbox();
@@ -567,9 +563,6 @@ class PlayField extends FlxTypedContainer<StrumNote>
 	{
 		_skin = newSkin;
 		NoteUtil.noteskins[player] = newSkin;
-		
-		// that way it checks the colors and re-assigns
-		this.hasChangedSkin = true;
 		
 		forEachAlive((strum) -> {
 			strum.skin = _skin;

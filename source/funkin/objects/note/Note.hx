@@ -237,9 +237,7 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 				ignoreNote = mustPress;
 				missHealth = isSustainNote ? 0.1 : 0.3;
 				hitCausesMiss = true;
-				rgbShader.r = 0xFF101010;
-				rgbShader.g = 0xFFFF0000;
-				rgbShader.b = 0xFF990022;
+				setCustomColor([0xFF101010, 0xFFFF0000, 0xFF990022]);
 				
 			case 'No Animation':
 				noAnimation = true;
@@ -272,6 +270,8 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		this.noteData = noteData;
 		this.inEditor = inEditor;
 		
+		rgbEnabled = (NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false);
+		
 		_resetTexture();
 	}
 	
@@ -300,9 +300,8 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 	{
 		if (ClientPrefs.quants && canQuant) quant = (prevNote?.quant ?? NoteUtil.getQuant(Conductor.getBeat(strumTime)));
 		
-		rgbShader = NoteUtil.initRGBShader(this, noteData, quant, player);
-		rgbEnabled = (NoteUtil.getSkinFromID(player)?.inEngineColoring ?? false);
-		reColor = NoteUtil.getCurColors(noteData, quant, player);
+		rgbShader ??= NoteUtil.initRGBShader(this, noteData, quant, player);
+		updateColors();
 		
 		prefix = suffix = animSuffix = texture = '';
 		
@@ -350,7 +349,6 @@ class Note extends FlxSprite implements funkin.game.modchart.IModNote
 		_resetTexture();
 		
 		if (queueNote != null) noteType = queueNote.noteType;
-		trace(shader == rgbShader.shader);
 	}
 	
 	public function postRecycle():Void
