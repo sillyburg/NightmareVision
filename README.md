@@ -47,7 +47,6 @@ In a cmd within the project directory, in order run...
 
 ```sh
 haxelib git hxpkg https://github.com/ADA-Funni/hxpkg add-hmm-compatibility
-haxelib run hxpkg setup
 haxelib run hxpkg install
 ```
 
