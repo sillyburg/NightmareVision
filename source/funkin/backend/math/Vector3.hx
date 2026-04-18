@@ -280,7 +280,35 @@ class Vector3 implements IFlxPooled
 		
 		return l;
 	}
-	
+
+	/**
+	    Projects this vector onto another `Vector3` instance
+	    @param onto A `Vector3` instance to project onto
+	    @param result (Optional) A `Vector3` instance to store the result
+	    @return A `Vector3` instance containing the projected vector
+	**/
+	public inline function project(onto:Vector3, result:Vector3 = null):Vector3
+	{
+	    if (result == null) result = Vector3.get();
+	    var scalar = dotProduct(onto) / onto.lengthSquared;
+	    result.setTo(onto.x * scalar, onto.y * scalar, onto.z * scalar);
+	    return result;
+	}	
+
+	/**
+		Projects this vector onto a plane defined by a normal `Vector3`
+		@param normal A `Vector3` instance representing the plane's normal (should be normalized)
+		@param result (Optional) A `Vector3` instance to store the result
+		@return A `Vector3` instance containing the projected vector
+	**/
+	public inline function projectOntoPlane(normal:Vector3, result:Vector3 = null):Vector3
+	{
+	    if (result == null) result = Vector3.get();
+	    var projected = project(normal, Vector3.get());
+	    result.setTo(x - projected.x, y - projected.y, z - projected.z);
+	    projected.put();
+	    return result;
+	}
 	/**
 		Scales the x, y and z component values by a scale value
 		@param	s	The amount of scale to apply
