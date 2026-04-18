@@ -364,16 +364,6 @@ class Vector3 implements IFlxPooled
 		result.setTo(x - a.x, y - a.y, z - a.z);
 		return result;
 	}
-
-	public static inline function zero():Vector3
-	{
-	    return Vector3.get(0, 0, 0);
-	}
-	
-	public static inline function one():Vector3
-	{
-	    return Vector3.get(1, 1, 1);
-	}
 	
 	/**
 	    Creates a `Vector3` from spherical coordinates
