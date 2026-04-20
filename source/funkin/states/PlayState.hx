@@ -1311,6 +1311,9 @@ class PlayState extends MusicBeatState
 		
 		audio.volume = 0;
 		
+		audio.play();
+		audio.pause();
+		
 		scripts.set('vocals', audio);
 		scripts.set('inst', audio.inst);
 		
