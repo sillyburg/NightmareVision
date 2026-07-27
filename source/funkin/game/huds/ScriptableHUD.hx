@@ -21,7 +21,7 @@ class ScriptableHUD extends BaseHUD
     public function searchScripts(_name:String)
     {
         // this was just copied from playstate cuz im lazy Ok? - borja
-        for (file in Paths.listAllFilesInDirectory('scripts/huds/$_name').filter(path -> FunkinScript.isHxFile(path)))
+        for (file in Paths.listAllFilesInDirectory('scripts/huds/$_name').filter(FunkinScript.isHxFile))
             initScript(FunkinScript.getPath(file));
     }
 
@@ -31,7 +31,9 @@ class ScriptableHUD extends BaseHUD
 		if (scripts.exists(name ?? filePath)) return null;
 		
 		var script:FunkinScript = FunkinScript.fromFile(filePath, name, scripts.scriptShareables);
-		if (script.__garbage)
+        script.execute();
+        
+		if (script.parsingFailed())
 		{
 			script = FlxDestroyUtil.destroy(script);
 			return null;
