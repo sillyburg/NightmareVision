@@ -738,8 +738,22 @@ class PlayState extends MusicBeatState
 			screenDim.camera = camHUD;
 			add(screenDim);
 		}
-		
-		playHUD = new funkin.game.huds.PsychHUD(this);
+
+		/**
+		 * if playHUD is null, then set to psych hud
+		 * allows for scripts to set another hud more easily
+		 * 
+		 * ```haxe
+		 * import funkin.game.huds.ScriptableHUD;
+		 * 
+		 * function onLoad()
+		 * {
+		 * 		playHUD = new ScriptableHUD(game, "nameHereLolz");
+		 * }
+		 * ```
+		 */
+		playHUD ??= new funkin.game.huds.PsychHUD(this);
+		playHUD.init();
 		add(playHUD);
 		playHUD.cameras = [camHUD];
 		

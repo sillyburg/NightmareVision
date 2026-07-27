@@ -28,7 +28,6 @@ class BaseHUD extends FlxTypedContainer<FlxBasic>
 	{
 		this.parent = parent;
 		super();
-		init();
 	}
 	
 	public function init():Void {}
